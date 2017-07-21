@@ -1,6 +1,6 @@
 {
   "name": "memoize-cache-redis",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A cache support for memoized functions",
   "main": "index.js",
   "scripts": {
