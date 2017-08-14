@@ -18,7 +18,9 @@ function CacheRedis(opts) {
 CacheRedis.prototype = Object.create(BaseCache.prototype);
 CacheRedis.prototype.constructor = CacheRedis;
 
-CacheRedis.prototype._set = function cache__set(k, payload, maxAge, next) {
+CacheRedis.prototype._set = function cache__set(keyObj, payload, maxAge, next) {
+  var k = keyObj.key;
+  var tags = keyObj.tags;
   var jsonData;
   try {
     jsonData = JSON.stringify(payload);
@@ -29,6 +31,10 @@ CacheRedis.prototype._set = function cache__set(k, payload, maxAge, next) {
     this.client.set(k, jsonData, 'PX', maxAge * 1000, next);
   } else {
     this.client.set(k, jsonData, next);
+    // this.client.multi()
+    // .sadd(tag1, key, cb)
+    // .expire('tag1', '1',) seconds
+    // .exec(next);
   }
 };
 
@@ -49,5 +55,30 @@ CacheRedis.prototype._get = function cache__get(key, next) {
     next(null, payload);
   });
 };
+
+CacheRedis.prototype.purgeByKeys = function cache__purgeByKeys(keys, next) {
+  next = next || function () {};
+  keys = Array.isArray(keys) ? keys : [keys];
+  client.del(keys, next);
+};
+
+CacheRedis.prototype.purgeByTags = function cache__purgeByTags(tags, next) {
+  // next = next || function () {};
+  // tags = Array.isArray(tags) ? tags : [tags];
+  //
+  // var cacheManager = this.cacheManager;
+  // var changes = parallel(keys.map(function (key) {
+  //   return function (cb) {
+  //     cacheManager.del(key, cb);
+  //   };
+  // }));
+  // changes(next);
+};
+
+CacheRedis.prototype.purgeAll = function cache__purgeAll(next) {
+  next = next || function () {};
+  this.client.flushdb(next);
+};
+
 
 module.exports = CacheRedis;

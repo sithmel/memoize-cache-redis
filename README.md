@@ -29,4 +29,57 @@ var cache = new Cache({ redisOpts: {}, key: function (config){
 
 Methods
 =======
-Check [memoize-cache](https://github.com/sithmel/memoize-cache) for the list of methods
+
+Pushing a new cached value
+--------------------------
+```js
+cache.push(args, output);
+```
+"args" is an array containing the arguments passed to the function that generated the output.
+This function is a "fire and forget" caching request. So there is no need of waiting for an answer, but if you want you can use a callback as third argument.
+It returns an object or undefined if the value won't be cached (because the TTL is 0 for example, or the resulting cachekey is null).
+This object contains:
+* key: the "cache key" if the value is scheduled to be cached
+* tags: an array with tags. They can be used to track and delete other keys
+
+Querying for cache hit
+----------------------
+```js
+cache.query(args, function (err, result){
+  // result.cached is true when you find a cached value
+  // result.hit is the value cached
+  // result.timing is the time spent in ms to retrieve the value (also used for cache miss)
+  // cached.key is the key used to store the value (might be useful for debugging)
+  // cache.stale (true/false) depending on the maxValidity function (if defined)
+});
+```
+"args" is an array containing the arguments passed to the function that generated the output.
+
+Getting the cache key
+---------------------
+```js
+var key = cache.getCacheKey(...);
+```
+It takes as arguments the same arguments of the function. It returns the cache key.
+It uses the function passed in the factory function. If it returns a string it uses it as key. In case it is not a string it tries to serialize it to JSON and then to an hash (using md5).
+
+The cache object
+----------------
+The cache object is in the "cache" property and it support the API specified here: https://github.com/sithmel/little-ds-toolkit#lru-cache
+
+Purging cache items
+-------------------
+There are 3 methods available:
+```js
+cache.purgeAll(); // it removes the whole cache (you can pass an optional callback)
+```
+```js
+cache.purgeByKeys(keys);
+// it removes the cache item with a specific key (string) or keys (array of strings).
+// You can pass an optional callback.
+```
+```js
+cache.purgeByTags(tags);
+// it removes the cache item marked with a tag (string) or tags (array of strings).
+// You can pass an optional callback.
+```
