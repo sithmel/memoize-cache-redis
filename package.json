@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "async-deco": "^7.6.0",
-    "memoize-cache": "^4.0.0",
+    "memoize-cache": "^5.0.0",
     "redis": "^2.7.1"
   },
   "optionalDependencies": {
