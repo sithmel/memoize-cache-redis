@@ -5,6 +5,10 @@ var redis = require('redis');
 
 describe('cache-redis', function () {
 
+  beforeEach(function () {
+    redis.createClient().flushdb();
+  });
+
   it('must translate args to key', function () {
     var cache = new Cache({ key: function (n) {return n;} });
     assert.equal(cache.getCacheKey('1'), '1');
@@ -26,6 +30,34 @@ describe('cache-redis', function () {
         assert.equal(res.key, '_default');
         assert.equal(res.hit, 'result');
         done();
+      });
+    });
+  });
+
+  it('must remove key', function (done) {
+    var cache = new Cache();
+    cache.push([], 'result', function (err) {
+      cache.purgeByKeys('_default', function (err) {
+        cache.query({}, function (err, res) {
+          assert.equal(res.cached, false);
+          assert.equal(res.key, '_default');
+          assert.isUndefined(res.hit);
+          done();
+        });
+      });
+    });
+  });
+
+  it('must remove key using a tag', function (done) {
+    var cache = new Cache({tags: function () { return ['tag']; } });
+    cache.push([], 'result', function (err) {
+      cache.purgeByTags('tag', function (err) {
+        cache.query({}, function (err, res) {
+          assert.equal(res.cached, false);
+          assert.equal(res.key, '_default');
+          assert.isUndefined(res.hit);
+          done();
+        });
       });
     });
   });
@@ -91,7 +123,6 @@ describe('cache-redis', function () {
       });
     });
   });
-
 
   it('must return null key', function () {
     var cache = new Cache({ key: function (n) {return null;}});
