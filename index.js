@@ -36,7 +36,7 @@ CacheRedis.prototype._set = function cache__set(keyObj, payload, maxAge, next) {
 
   var callback = !tags.length ? next : function (err) {
     if (err) return next(err);
-    tagsLib.add(k, tags, hasMaxAge ? maxAge : undefined, next);
+    tagsLib.add(k, tags, hasMaxAge ? (maxAge * 1000) : undefined, next);
   };
 
   if (hasMaxAge) {
@@ -68,6 +68,9 @@ CacheRedis.prototype.purgeByKeys = function cache__purgeByKeys(keys, next) {
   next = next || function () {};
   keys = Array.isArray(keys) ? keys : [keys];
   var that = this;
+  if (!keys.length) {
+    return next(null);
+  }
   this.client.del(keys, function (err) {
     if (err) return next(err);
     that.tagsLib.removeKeys(keys, next);
