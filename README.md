@@ -8,7 +8,9 @@ cache
 =====
 The constructor takes an cache-manager object, and an "options" object.
 The options object may contain these attributes:
-* redisOpts: an object of options passed to [redis](https://github.com/NodeRedis/node_redis)
+* redisOpts: an object of options passed to [redis](https://github.com/NodeRedis/node_redis). See below for default options.
+* onError: called when connection to redis fails
+* onReady: called when redis is ready to accept commands
 * key: a function used to extract the cache key (used in the push and query method for storing, retrieving the cached value). The key returned should be a string or it will be converted to JSON and then md5. Default: a function returning a fixed key. The value won't be cached if the function returns null
 * tags: a function that returns an array of tags (strings). You can use that for purging a set of items from the cache.
 * maxAge: it is a function that allows you to use a different TTL for a specific item (in seconds). If it returns 0 it will avoid caching the item. The function takes the same arguments as the "push" method (an array of inputs and the output). If it returns undefined, the default ttl will be used.
@@ -27,6 +29,17 @@ var cache = new Cache({ redisOpts: {}, key: function (config){
   return config.id;
 } });
 ```
+
+redis default
+-------------
+By default redis is configured to NOT queue commands when connection is not established. It throws directly an error (enable_offline_queue: false).
+Also there is the following default retry strategy (retry_strategy):
+```js
+function retry_strategy(options) {
+  return Math.min(options.attempt * 1000, 5000);
+}
+```
+You can override both parameters using redisOpts.
 
 Methods
 =======

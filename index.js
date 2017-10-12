@@ -4,10 +4,22 @@ var redis = require('redis');
 var snappy = require('./utils/snappy');
 var Tags = require('./utils/tags.js');
 
+function retry_strategy(options) {
+  return Math.min(options.attempt * 1000, 5000);
+}
+
+var defaultRedisCfg = {
+  enable_offline_queue: false, // better fail than queue
+  retry_strategy: retry_strategy,
+};
 
 function CacheRedis(opts) {
   BaseCache.call(this, opts);
-  this.client = redis.createClient(this.opts.redisOpts);
+  this.client = redis.createClient(Object.assign({}, defaultRedisCfg, this.opts.redisOpts));
+  var onError = this.opts.onError || function () {};
+  var onReady = this.opts.onReady || function () {};
+  this.client.on('error', onError); // default on Error swallow the error
+  this.client.on('ready', onReady);
   this.tagsLib = new Tags(this.client, this.opts.prefixKeysSet, this.opts.prefixTagsSet);
   if (this.opts.compress) {
     if (!snappy.isSnappyInstalled) {

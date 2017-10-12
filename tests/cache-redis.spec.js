@@ -5,8 +5,10 @@ var redis = require('redis');
 
 describe('cache-redis', function () {
 
-  beforeEach(function () {
-    redis.createClient().flushdb();
+  beforeEach(function (done) {
+    redis.createClient()
+      .on('ready', done)
+      .flushdb();
   });
 
   it('must translate args to key', function () {
@@ -23,104 +25,111 @@ describe('cache-redis', function () {
   });
 
   it('must configure cache: default key', function (done) {
-    var cache = new Cache();
-    cache.push([], 'result', function (err) {
-      cache.query({}, function (err, res) {
-        assert.equal(res.cached, true);
-        assert.equal(res.key, '_default');
-        assert.equal(res.hit, 'result');
-        done();
-      });
-    });
-  });
-
-  it('must remove key', function (done) {
-    var cache = new Cache();
-    cache.push([], 'result', function (err) {
-      cache.purgeByKeys('_default', function (err) {
-        cache.query({}, function (err, res) {
-          assert.equal(res.cached, false);
-          assert.equal(res.key, '_default');
-          assert.isUndefined(res.hit);
-          done();
-        });
-      });
-    });
-  });
-
-  it('must remove key using a tag', function (done) {
-    var cache = new Cache({tags: function () { return ['tag']; } });
-    cache.push([], 'result', function (err) {
-      cache.purgeByTags('tag', function (err) {
-        cache.query({}, function (err, res) {
-          assert.equal(res.cached, false);
-          assert.equal(res.key, '_default');
-          assert.isUndefined(res.hit);
-          done();
-        });
-      });
-    });
-  });
-
-  it('must push twice', function (done) {
-    var cache = new Cache();
-    cache.push([], 'result1', function (err) {
-      cache.push([], 'result2', function (err) {
-        cache.query({}, function (err, res) {
-          assert.equal(res.cached, true);
-          assert.equal(res.stale, false);
-          assert.equal(res.key, '_default');
-          assert.equal(res.hit, 'result2');
-          done();
-        });
-      });
-    });
-  });
-
-  describe('maxValidity', function () {
-    it('must use value', function (done) {
-      var cache = new Cache({ maxValidity: 0.100 });
+    var cache = new Cache({ onReady: function () {
       cache.push([], 'result', function (err) {
         cache.query({}, function (err, res) {
           assert.equal(res.cached, true);
-          assert.equal(res.stale, false);
           assert.equal(res.key, '_default');
           assert.equal(res.hit, 'result');
           done();
         });
       });
-    });
+    }});
+  });
 
-    it('must use value (2)', function (done) {
-      var cache = new Cache({ maxValidity: 0.030 });
+  it('must remove key', function (done) {
+    var cache = new Cache({ onReady: function () {
       cache.push([], 'result', function (err) {
-        setTimeout(function () {
+        cache.purgeByKeys('_default', function (err) {
+          cache.query({}, function (err, res) {
+            assert.equal(res.cached, false);
+            assert.equal(res.key, '_default');
+            assert.isUndefined(res.hit);
+            done();
+          });
+        });
+      });
+    } });
+  });
+
+  it('must remove key using a tag', function (done) {
+    var cache = new Cache({tags: function () { return ['tag']; }, onReady: function () {
+      cache.push([], 'result', function (err) {
+        cache.purgeByTags('tag', function (err) {
+          cache.query({}, function (err, res) {
+            assert.equal(res.cached, false);
+            assert.equal(res.key, '_default');
+            assert.isUndefined(res.hit);
+            done();
+          });
+        });
+      });
+    } });
+  });
+
+  it('must push twice', function (done) {
+    var cache = new Cache({ onReady: function () {
+      cache.push([], 'result1', function (err) {
+        cache.push([], 'result2', function (err) {
           cache.query({}, function (err, res) {
             assert.equal(res.cached, true);
-            assert.equal(res.stale, true);
+            assert.equal(res.stale, false);
+            assert.equal(res.key, '_default');
+            assert.equal(res.hit, 'result2');
+            done();
+          });
+        });
+      });
+    } });
+  });
+
+  describe('maxValidity', function () {
+    it('must use value', function (done) {
+      var cache = new Cache({ maxValidity: 0.100, onReady: function () {
+        cache.push([], 'result', function (err) {
+          cache.query({}, function (err, res) {
+            assert.equal(res.cached, true);
+            assert.equal(res.stale, false);
             assert.equal(res.key, '_default');
             assert.equal(res.hit, 'result');
             done();
           });
-        }, 40);
-      });
+        });
+      } });
+    });
+
+    it('must use value (2)', function (done) {
+      var cache = new Cache({ maxValidity: 0.030, onReady: function () {
+        cache.push([], 'result', function (err) {
+          setTimeout(function () {
+            cache.query({}, function (err, res) {
+              assert.equal(res.cached, true);
+              assert.equal(res.stale, true);
+              assert.equal(res.key, '_default');
+              assert.equal(res.hit, 'result');
+              done();
+            });
+          }, 40);
+        });
+      } });
     });
 
     it('must use func', function (done) {
       var cache = new Cache({ maxValidity: function () {
         return 0.010;
-      }});
-      cache.push([], 'result', function (err) {
-        setTimeout(function () {
-          cache.query({}, function (err, res) {
-            assert.equal(res.cached, true);
-            assert.equal(res.stale, true);
-            assert.equal(res.key, '_default');
-            assert.equal(res.hit, 'result');
-            done();
-          });
-        }, 15);
-      });
+      }, onReady: function () {
+        cache.push([], 'result', function (err) {
+          setTimeout(function () {
+            cache.query({}, function (err, res) {
+              assert.equal(res.cached, true);
+              assert.equal(res.stale, true);
+              assert.equal(res.key, '_default');
+              assert.equal(res.hit, 'result');
+              done();
+            });
+          }, 15);
+        });
+      } });
     });
   });
 
@@ -130,15 +139,16 @@ describe('cache-redis', function () {
   });
 
   it('must not cache if key is null', function (done) {
-    var cache = new Cache({ key: function (n) {return null;} });
-    cache.push([], 'result', function (err) {
-      cache.query({}, function (err, res) {
-        assert.equal(res.cached, false);
-        assert.equal(res.key, null);
-        assert.isUndefined(res.hit);
-        done();
+    var cache = new Cache({ key: function (n) {return null;}, onReady: function () {
+      cache.push([], 'result', function (err) {
+        cache.query({}, function (err, res) {
+          assert.equal(res.cached, false);
+          assert.equal(res.key, null);
+          assert.isUndefined(res.hit);
+          done();
+        });
       });
-    });
+    } });
   });
 
   it('must not cache with specific output', function (done) {
@@ -151,15 +161,17 @@ describe('cache-redis', function () {
           return 0;
         }
         return Infinity;
+      },
+      onReady: function () {
+        cache.push(['1'], 'result', function (err) {
+          cache.query(['1'], function (err, res) {
+            assert.equal(res.cached, false);
+            assert.equal(res.key, '1');
+            assert.isUndefined(res.hit);
+            done();
+          });
+        });
       }
-    });
-    cache.push(['1'], 'result', function (err) {
-      cache.query(['1'], function (err, res) {
-        assert.equal(res.cached, false);
-        assert.equal(res.key, '1');
-        assert.isUndefined(res.hit);
-        done();
-      });
     });
   });
 
@@ -167,12 +179,15 @@ describe('cache-redis', function () {
     var cache;
 
     beforeEach(function (done) {
-      cache = new Cache({ key: function (data) {
-        return data.test;
-      } });
-      cache.push([{test: '1'}], 'result1', function (err) {
-        cache.push([{test: '2'}], 'result2', done);
-      });
+      cache = new Cache({
+        key: function (data) {
+          return data.test;
+        },
+        onReady: function () {
+          cache.push([{test: '1'}], 'result1', function (err) {
+            cache.push([{test: '2'}], 'result2', done);
+          });
+        } });
     });
 
     it('must configure cache: string key 1', function (done) {
@@ -204,75 +219,87 @@ describe('cache-redis', function () {
   });
 
   it('must configure cache: string key/object', function (done) {
-    var cache = new Cache({ key: function (data) {
-      return data.test;
-    } });
-
-    cache.push([{test: [1, 2]}], 'result1', function (err) {
-      cache.push([{test: [3, 4]}], 'result2', function (err) {
-        cache.query([{test: [1, 2]}], function (err, res1) {
-          assert.equal(res1.cached, true);
-          assert.equal(res1.key, 'f79408e5ca998cd53faf44af31e6eb45');
-          assert.equal(res1.hit, 'result1');
-          done();
+    var cache = new Cache({
+      key: function (data) {
+        return data.test;
+      },
+      onReady: function () {
+        cache.push([{test: [1, 2]}], 'result1', function (err) {
+          cache.push([{test: [3, 4]}], 'result2', function (err) {
+            cache.query([{test: [1, 2]}], function (err, res1) {
+              assert.equal(res1.cached, true);
+              assert.equal(res1.key, 'f79408e5ca998cd53faf44af31e6eb45');
+              assert.equal(res1.hit, 'result1');
+              done();
+            });
+          });
         });
-      });
-    });
-
+      } });
   });
 
   it('must configure cache: array key', function (done) {
-    var cache = new Cache({ key: function (data) {
-      return data.test[0];
-    } });
-    cache.push([{test: [1, 2]}], 'result1', function (err) {
-      cache.query([{test: [1, 'x']}], function (err, res1) {
-        assert.equal(res1.cached, true);
-        assert.equal(res1.key, 'c4ca4238a0b923820dcc509a6f75849b');
-        assert.equal(res1.hit, 'result1');
-        done();
-      });
-    });
-
+    var cache = new Cache({
+      key: function (data) {
+        return data.test[0];
+      },
+      onReady: function () {
+        cache.push([{test: [1, 2]}], 'result1', function (err) {
+          cache.query([{test: [1, 'x']}], function (err, res1) {
+            assert.equal(res1.cached, true);
+            assert.equal(res1.key, 'c4ca4238a0b923820dcc509a6f75849b');
+            assert.equal(res1.hit, 'result1');
+            done();
+          });
+        });
+      } });
   });
 
   it('must configure cache: array key/object', function (done) {
-    var cache = new Cache({ key: function (data) {
-      return data.test;
-    }});
-    cache.push([{test: [1, 2]}], 'result1', function (err) {
-      cache.query([{test: [1, 2]}], function (err, res1) {
-        assert.equal(res1.cached, true);
-        assert.equal(res1.key, 'f79408e5ca998cd53faf44af31e6eb45');
-        assert.equal(res1.hit, 'result1');
-        done();
-      });
-    });
-
+    var cache = new Cache({
+      key: function (data) {
+        return data.test;
+      },
+      onReady: function () {
+        cache.push([{test: [1, 2]}], 'result1', function (err) {
+          cache.query([{test: [1, 2]}], function (err, res1) {
+            assert.equal(res1.cached, true);
+            assert.equal(res1.key, 'f79408e5ca998cd53faf44af31e6eb45');
+            assert.equal(res1.hit, 'result1');
+            done();
+          });
+        });
+      } });
   });
 
   it('must configure cache: func', function (done) {
-    var cache = new Cache({ key: function (config) {
-      return config.test * 2;
-    } });
-    cache.push([{test: 4}], 'result1', function (err) {
-      cache.query([{test: 4}], function (err, res1) {
-        assert.equal(res1.cached, true);
-        assert.equal(res1.key, 'c9f0f895fb98ab9159f51fd0297e236d');
-        assert.equal(res1.hit, 'result1');
-        done();
-      });
-    });
+    var cache = new Cache({
+      key: function (config) {
+        return config.test * 2;
+      },
+      onReady: function () {
+        cache.push([{test: 4}], 'result1', function (err) {
+          cache.query([{test: 4}], function (err, res1) {
+            assert.equal(res1.cached, true);
+            assert.equal(res1.key, 'c9f0f895fb98ab9159f51fd0297e236d');
+            assert.equal(res1.hit, 'result1');
+            done();
+          });
+        });
+      } });
   });
 
   describe('maxAge', function () {
     var cache;
 
     beforeEach(function (done) {
-      cache = new Cache({ key: function (data) {
-        return data.test;
-      }, maxAge: 0.030 });
-      cache.push([{test: '1'}], 'result1', done);
+      cache = new Cache({
+        key: function (data) {
+          return data.test;
+        },
+        maxAge: 0.030,
+        onReady: function () {
+          cache.push([{test: '1'}], 'result1', done);
+        } });
     });
 
     it('must be cached', function (done) {
@@ -325,10 +352,11 @@ describe('cache-redis', function () {
         maxAge: function (args, output) {
           var data = args[0];
           return data.test === '1' ? 0 : 0.050;
+        },
+        onReady: function () {
+          cache.push([{test: '1'}], 'result1', done);
         }
       });
-
-      cache.push([{test: '1'}], 'result1', done);
     });
 
     it('must not be cached', function (done) {
@@ -380,15 +408,19 @@ describe('cache-redis', function () {
       return JSON.parse(uncompressed);
     };
 
-    var cache = new Cache({ serialize: serialize, deserialize: deserialize});
-    cache.push([], 'result', function (err) {
-      cache.query({}, function (err, res) {
-        assert.equal(res.cached, true);
-        assert.equal(res.key, '_default');
-        assert.equal(res.hit, 'result');
-        done();
-      });
-    });
+    var cache = new Cache({
+      serialize: serialize,
+      deserialize: deserialize,
+      onReady: function () {
+        cache.push([], 'result', function (err) {
+          cache.query({}, function (err, res) {
+            assert.equal(res.cached, true);
+            assert.equal(res.key, '_default');
+            assert.equal(res.hit, 'result');
+            done();
+          });
+        });
+      } });
   });
 
   it('must serialize/deserialize data with snappy async', function (done) {
@@ -418,27 +450,34 @@ describe('cache-redis', function () {
       });
     };
 
-    var cache = new Cache({ serializeAsync: serialize, deserializeAsync: deserialize });
-    cache.push([], 'result', function (err) {
-      cache.query({}, function (err, res) {
-        assert.equal(res.cached, true);
-        assert.equal(res.key, '_default');
-        assert.equal(res.hit, 'result');
-        done();
-      });
-    });
+    var cache = new Cache({
+      serializeAsync: serialize,
+      deserializeAsync: deserialize,
+      onReady: function () {
+        cache.push([], 'result', function (err) {
+          cache.query({}, function (err, res) {
+            assert.equal(res.cached, true);
+            assert.equal(res.key, '_default');
+            assert.equal(res.hit, 'result');
+            done();
+          });
+        });
+      } });
   });
 
   it('must serialize/deserialize data with snappy (use flag)', function (done) {
-    var cache = new Cache({ compress: true });
-    cache.push([], 'result', function (err) {
-      cache.query({}, function (err, res) {
-        assert.equal(res.cached, true);
-        assert.equal(res.key, '_default');
-        assert.equal(res.hit, 'result');
-        done();
-      });
-    });
+    var cache = new Cache({
+      compress: true,
+      onReady: function () {
+        cache.push([], 'result', function (err) {
+          cache.query({}, function (err, res) {
+            assert.equal(res.cached, true);
+            assert.equal(res.key, '_default');
+            assert.equal(res.hit, 'result');
+            done();
+          });
+        });
+      } });
   });
 
   it('must serialize/deserialize data with snappy (use flag + serialize)', function (done) {
@@ -450,14 +489,19 @@ describe('cache-redis', function () {
       return arr.join('');
     };
 
-    var cache = new Cache({ compress: true, serialize: serialize, deserialize: deserialize });
-    cache.push([], 'result', function (err) {
-      cache.query({}, function (err, res) {
-        assert.equal(res.cached, true);
-        assert.equal(res.key, '_default');
-        assert.equal(res.hit, 'result');
-        done();
-      });
-    });
+    var cache = new Cache({
+      compress: true,
+      serialize: serialize,
+      deserialize: deserialize,
+      onReady: function () {
+        cache.push([], 'result', function (err) {
+          cache.query({}, function (err, res) {
+            assert.equal(res.cached, true);
+            assert.equal(res.key, '_default');
+            assert.equal(res.hit, 'result');
+            done();
+          });
+        });
+      } });
   });
 });
