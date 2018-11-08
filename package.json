@@ -4,7 +4,7 @@
   "description": "A cache support for memoized functions",
   "main": "index.js",
   "scripts": {
-    "test": "mocha",
+    "test": "mocha --exit",
     "watch": "npm run test -- -w",
     "lint": "eslint . --fix",
     "precommit": "npm run lint",

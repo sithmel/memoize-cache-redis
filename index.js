@@ -108,4 +108,9 @@ CacheRedis.prototype.purgeAll = function cachePurgeAll (next) {
   this.client.flushdb(next)
 }
 
+CacheRedis.prototype.close = function cacheClose (next) {
+  next = next || function () {}
+  this.client.quit(next)
+}
+
 module.exports = CacheRedis
