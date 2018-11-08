@@ -8,7 +8,8 @@ cache
 =====
 The constructor takes an cache-manager object, and an "options" object.
 The options object may contain these attributes:
-* redisOpts: an object of options passed to [redis](https://github.com/NodeRedis/node_redis). See below for default options.
+* redisClient: a redisClient instance (node-redis)[https://github.com/NodeRedis/node_redis]. You can use this as an alternative of redisOpts
+* redisOpts: an object of options passed to [redis](https://github.com/NodeRedis/node_redis). See below for default options. You can use this as an alternative of redisClient.
 * onError: called when connection to redis fails
 * onReady: called when redis is ready to accept commands
 * key: a function used to extract the cache key (used in the push and query method for storing, retrieving the cached value). The key returned should be a string or it will be converted to JSON and then md5. Default: a function returning a fixed key. The value won't be cached if the function returns null
