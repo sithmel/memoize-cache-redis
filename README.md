@@ -98,3 +98,9 @@ cache.purgeByTags(tags);
 // it removes the cache item marked with a tag (string) or tags (array of strings).
 // You can pass an optional callback.
 ```
+
+Closing redis
+-------------
+```js
+cache.close(cb);
+```

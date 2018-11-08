@@ -15,15 +15,22 @@ var defaultRedisCfg = {
 
 function CacheRedis (opts) {
   BaseCache.call(this, opts)
+  if (this.opts.redisClient && this.opts.redisOpts) {
+    throw new Error('redisClient and redisOpts options are mutually exclusive')
+  }
+
+  if (this.opts.redisClient && (this.opts.onError || this.opts.onReady)) {
+    throw new Error('You cannot use onError and onReady when passing redisClient. You can attach the handlers directly to that one.')
+  }
   if (this.opts.redisClient) {
     this.client = this.opts.redisClient
   } else {
     this.client = redis.createClient(Object.assign({}, defaultRedisCfg, this.opts.redisOpts))
+    var onError = this.opts.onError || function () {}
+    var onReady = this.opts.onReady || function () {}
+    this.client.on('error', onError) // default on Error swallow the error
+    this.client.on('ready', onReady)
   }
-  var onError = this.opts.onError || function () {}
-  var onReady = this.opts.onReady || function () {}
-  this.client.on('error', onError) // default on Error swallow the error
-  this.client.on('ready', onReady)
   this.tagsLib = new Tags(this.client, this.opts.prefixKeysSet, this.opts.prefixTagsSet)
   if (this.opts.compress) {
     if (!snappy.isSnappyInstalled) {
