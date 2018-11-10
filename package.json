@@ -31,7 +31,7 @@
     "npm-release": "^1.0.0"
   },
   "dependencies": {
-    "memoize-cache": "^5.0.4",
+    "memoize-cache": "^6.0.0",
     "redis": "^2.8.0"
   },
   "optionalDependencies": {

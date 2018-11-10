@@ -1,8 +1,11 @@
 var BaseCache = require('memoize-cache/base-cache')
-var waterfall = require('./utils/waterfall')
 var redis = require('redis')
 var snappy = require('./utils/snappy')
 var Tags = require('./utils/tags.js')
+
+function isString (value) {
+  return typeof value === 'string'
+}
 
 function retryStrategy (options) {
   return Math.min(options.attempt * 1000, 5000)
@@ -32,12 +35,15 @@ function CacheRedis (opts) {
     this.client.on('ready', onReady)
   }
   this.tagsLib = new Tags(this.client, this.opts.prefixKeysSet, this.opts.prefixTagsSet)
+
+  this.compress = function (obj, cb) { cb(null, obj) }
+  this.decompress = function (str, cb) { cb(null, str) }
   if (this.opts.compress) {
     if (!snappy.isSnappyInstalled) {
       throw new Error('The "compress" option requires the "snappy" library. Its installation failed (hint missing libraries or compiler)')
     }
-    this.serialize = waterfall([this.serialize, snappy.compress])
-    this.deserialize = waterfall([snappy.decompress, this.deserialize])
+    this.compress = snappy.compress
+    this.decompress = snappy.decompress
   }
 }
 
@@ -45,10 +51,20 @@ CacheRedis.prototype = Object.create(BaseCache.prototype)
 CacheRedis.prototype.constructor = CacheRedis
 
 CacheRedis.prototype._set = function _cacheSet (keyObj, payload, maxAge, next) {
+  var that = this
   var k = keyObj.key
   var tags = keyObj.tags
   var tagsLib = this.tagsLib
   var jsonData
+
+  if (!isString(k)) {
+    return next(new Error('Set cache: The cache key must be a string'))
+  }
+
+  if (!tags.every(isString)) {
+    return next(new Error('Set cache: The cache tags must be an array of strings'))
+  }
+
   try {
     jsonData = JSON.stringify(payload)
   } catch (e) {
@@ -62,28 +78,40 @@ CacheRedis.prototype._set = function _cacheSet (keyObj, payload, maxAge, next) {
     tagsLib.add(k, tags, hasMaxAge ? (maxAge * 1000) : undefined, next)
   }
 
-  if (hasMaxAge) {
-    this.client.set(k, jsonData, 'PX', maxAge * 1000, callback)
-  } else {
-    this.client.set(k, jsonData, callback)
-  }
+  this.compress(jsonData, function (err, compressed) {
+    if (err) return callback(err)
+    if (hasMaxAge) {
+      that.client.set(k, compressed, 'PX', maxAge * 1000, callback)
+    } else {
+      that.client.set(k, compressed, callback)
+    }
+  })
 }
 
 CacheRedis.prototype._get = function _cacheGet (key, next) {
-  this.client.get(key, function (err, jsonData) {
-    var payload
+  if (!isString(key)) {
+    return next(new Error('Get cache: The cache key must be a string'))
+  }
+  var that = this
+  this.client.get(key, function (err, compressed) {
     if (err) {
       return next(err)
     }
-    if (!jsonData) {
-      return next(null, null)
-    }
-    try {
-      payload = JSON.parse(jsonData)
-    } catch (e) {
-      return next(e)
-    }
-    next(null, payload)
+    that.decompress(compressed, function (err, jsonData) {
+      var payload
+      if (err) {
+        return next(err)
+      }
+      if (!jsonData) {
+        return next(null, null)
+      }
+      try {
+        payload = JSON.parse(jsonData)
+      } catch (e) {
+        return next(e)
+      }
+      next(null, payload)
+    })
   })
 }
 
